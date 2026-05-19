@@ -31,6 +31,26 @@ app.use(express.json());
 const PORT = process.env.PORT || 10000;
 
 // ======================================================
+// ENV VALIDATION
+// ======================================================
+
+const REQUIRED_ENV = [
+    'DB_HOST',
+    'DB_USER',
+    'DB_PASSWORD',
+    'DB_NAME',
+    'DB_PORT'
+];
+
+for (const key of REQUIRED_ENV) {
+
+    if (!process.env[key]) {
+
+        console.error(`Missing environment variable: ${key}`);
+    }
+}
+
+// ======================================================
 // MYSQL POOL
 // ======================================================
 
@@ -43,13 +63,13 @@ const pool = mysql.createPool({
         process.env.DB_USER,
 
     password:
-        process.env.DB_PASS,
+        process.env.DB_PASSWORD,
 
     database:
         process.env.DB_NAME,
 
     port:
-        process.env.DB_PORT || 3306,
+        Number(process.env.DB_PORT),
 
     ssl: {
         rejectUnauthorized: false
@@ -59,7 +79,11 @@ const pool = mysql.createPool({
 
     connectionLimit: 10,
 
-    queueLimit: 0
+    queueLimit: 0,
+
+    enableKeepAlive: true,
+
+    keepAliveInitialDelay: 0
 });
 
 // ======================================================
@@ -72,6 +96,8 @@ async function initDB() {
 
         const connection =
             await pool.getConnection();
+
+        console.log('MySQL Connected');
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS pokemon (
@@ -86,9 +112,10 @@ async function initDB() {
         `);
 
         const [rows] =
-            await connection.query(
-                'SELECT COUNT(*) AS total FROM pokemon'
-            );
+            await connection.query(`
+                SELECT COUNT(*) AS total
+                FROM pokemon
+            `);
 
         if (rows[0].total === 0) {
 
@@ -113,33 +140,44 @@ async function initDB() {
                 )
             `);
 
-            console.log('Pokemon inicial insertado');
+            console.log('Initial Pokemon inserted');
         }
 
         connection.release();
 
-        console.log('MySQL Connected');
-
     } catch (error) {
 
         console.error(
-            'Database Error:',
-            error
+            'Database Initialization Error:',
+            error.message
         );
     }
 }
 
 // ======================================================
-// HOME
+// HEALTH CHECK
 // ======================================================
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
 
-    res.json({
-        service: 'Pokemon API',
-        status: 'running',
-        database: 'MySQL Aiven'
-    });
+    try {
+
+        await pool.query('SELECT 1');
+
+        res.json({
+            service: 'Pokemon API',
+            status: 'running',
+            database: 'connected'
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            service: 'Pokemon API',
+            status: 'database error',
+            error: error.message
+        });
+    }
 });
 
 // ======================================================
@@ -157,14 +195,14 @@ app.get('/api/pokemon', async (req, res) => {
                 ORDER BY id ASC
             `);
 
-        res.json(pokemon);
+        res.status(200).json(pokemon);
 
     } catch (error) {
 
         console.error(error);
 
         res.status(500).json({
-            error: 'Internal Server Error'
+            error: error.message
         });
     }
 });
@@ -178,6 +216,13 @@ app.get('/api/pokemon/:id', async (req, res) => {
     try {
 
         const { id } = req.params;
+
+        if (isNaN(id)) {
+
+            return res.status(400).json({
+                error: 'Invalid Pokemon ID'
+            });
+        }
 
         const [pokemon] =
             await pool.query(`
@@ -193,14 +238,14 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
-        res.json(pokemon[0]);
+        res.status(200).json(pokemon[0]);
 
     } catch (error) {
 
         console.error(error);
 
         res.status(500).json({
-            error: 'Internal Server Error'
+            error: error.message
         });
     }
 });
@@ -234,8 +279,8 @@ app.listen(PORT, async () => {
 
     console.log(`
 ========================================
- Pokemon API Running
-Port: ${PORT}
+🚀 Pokemon API Running
+🌐 Port: ${PORT}
 ========================================
     `);
 
