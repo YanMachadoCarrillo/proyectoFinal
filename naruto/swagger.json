@@ -1,0 +1,37 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Naruto API",
+    "version": "1.0.0",
+    "description": "API para obtener personajes de Naruto desde PostgreSQL"
+  },
+  "paths": {
+    "/api/naruto": {
+      "get": {
+        "summary": "Obtener lista de Personajes",
+        "responses": {
+          "200": {
+            "description": "Lista exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "nombre": { "type": "string" },
+                      "aldea": { "type": "string" },
+                      "rango": { "type": "string" },
+                      "imagen": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

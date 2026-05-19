@@ -1,0 +1,36 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Dragon Ball API",
+    "version": "1.0.0",
+    "description": "API para obtener personajes de Dragon Ball desde MongoDB"
+  },
+  "paths": {
+    "/api/dragonball": {
+      "get": {
+        "summary": "Obtener lista de Personajes",
+        "responses": {
+          "200": {
+            "description": "Lista exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "nombre": { "type": "string" },
+                      "raza": { "type": "string" },
+                      "ki": { "type": "integer" },
+                      "imagen": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
