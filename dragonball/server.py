@@ -1,19 +1,28 @@
-import os
-import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from flask import Flask, jsonify
+from flask_cors import CORS
+from flasgger import Swagger
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
+import os
+import logging
 
 # ======================================================
-# CONFIG
+# APP CONFIG
 # ======================================================
+
+app = Flask(__name__)
+
+CORS(app)
+
+Swagger(app)
+
+logging.basicConfig(level=logging.INFO)
 
 PORT = int(os.getenv("PORT", 3003))
 
-# REEMPLAZA ESTA URI POR LA REAL DE MONGODB ATLAS
 MONGO_URI = os.getenv(
     "MONGO_URI",
-    "mongodb+srv://YanCarlos:1234567890@pokeapibd.crjoj9o.mongodb.net/?appName=pokeapiBD"
+    "mongodb+srv://TU_USUARIO:TU_PASSWORD@cluster.mongodb.net/?retryWrites=true&w=majority"
 )
 
 DB_NAME = os.getenv(
@@ -34,231 +43,97 @@ try:
 
     client = MongoClient(
         MONGO_URI,
-        serverSelectionTimeoutMS=10000,
-        connectTimeoutMS=10000,
-        socketTimeoutMS=10000,
-        retryWrites=True
+        serverSelectionTimeoutMS=5000
     )
 
-    # TEST CONNECTION
     client.admin.command("ping")
 
     db = client[DB_NAME]
 
     collection = db[COLLECTION_NAME]
 
-    print("MongoDB Atlas Connected")
+    logging.info("MongoDB Connected")
 
 except ConnectionFailure as error:
 
-    print("MongoDB Connection Error")
+    logging.error(error)
 
-    print(error)
-
-    exit(1)
+    raise error
 
 # ======================================================
-# SEND JSON RESPONSE
+# HOME
 # ======================================================
 
-def send_json(handler, status_code, data):
+@app.route("/", methods=["GET"])
+def home():
+    """
+    Home Endpoint
+    ---
+    responses:
+      200:
+        description: API funcionando correctamente
+    """
 
-    handler.send_response(status_code)
-
-    handler.send_header(
-        "Content-Type",
-        "application/json; charset=utf-8"
-    )
-
-    handler.send_header(
-        "Access-Control-Allow-Origin",
-        "*"
-    )
-
-    handler.send_header(
-        "Access-Control-Allow-Methods",
-        "GET, OPTIONS"
-    )
-
-    handler.send_header(
-        "Access-Control-Allow-Headers",
-        "Content-Type"
-    )
-
-    handler.end_headers()
-
-    handler.wfile.write(
-        json.dumps(
-            data,
-            ensure_ascii=False
-        ).encode("utf-8")
-    )
+    return jsonify({
+        "service": "Dragon Ball API",
+        "status": "running"
+    })
 
 # ======================================================
-# REQUEST HANDLER
+# GET CHARACTERS
 # ======================================================
 
-class RequestHandler(BaseHTTPRequestHandler):
+@app.route("/api/dragonball", methods=["GET"])
+def get_characters():
+    """
+    Obtener personajes Dragon Ball
+    ---
+    tags:
+      - Dragon Ball
+    responses:
+      200:
+        description: Lista de personajes
+    """
 
-    # ==================================================
-    # REMOVE TERMINAL LOGS
-    # ==================================================
+    try:
 
-    def log_message(self, format, *args):
-        return
-
-    # ==================================================
-    # OPTIONS
-    # ==================================================
-
-    def do_OPTIONS(self):
-
-        self.send_response(204)
-
-        self.send_header(
-            "Access-Control-Allow-Origin",
-            "*"
-        )
-
-        self.send_header(
-            "Access-Control-Allow-Methods",
-            "GET, OPTIONS"
-        )
-
-        self.send_header(
-            "Access-Control-Allow-Headers",
-            "Content-Type"
-        )
-
-        self.end_headers()
-
-    # ==================================================
-    # GET
-    # ==================================================
-
-    def do_GET(self):
-
-        # ==============================================
-        # ROOT
-        # ==============================================
-
-        if self.path == "/":
-
-            return send_json(
-                self,
-                200,
+        characters = list(
+            collection.find(
+                {},
                 {
-                    "service": "Dragon Ball API",
-                    "status": "running",
-                    "database": DB_NAME,
-                    "collection": COLLECTION_NAME
+                    "_id": 0
                 }
             )
-
-        # ==============================================
-        # DRAGON BALL API
-        # ==============================================
-
-        if self.path == "/api/dragonball":
-
-            try:
-
-                characters = list(
-                    collection.find(
-                        {},
-                        {
-                            "_id": 0
-                        }
-                    )
-                )
-
-                return send_json(
-                    self,
-                    200,
-                    characters
-                )
-
-            except Exception as error:
-
-                print("Query Error")
-
-                print(error)
-
-                return send_json(
-                    self,
-                    500,
-                    {
-                        "error": "Internal Server Error"
-                    }
-                )
-
-        # ==============================================
-        # SWAGGER
-        # ==============================================
-
-        if self.path == "/api-docs":
-
-            try:
-
-                with open(
-                    "swagger.json",
-                    "r",
-                    encoding="utf-8"
-                ) as file:
-
-                    swagger_data = json.load(file)
-
-                return send_json(
-                    self,
-                    200,
-                    swagger_data
-                )
-
-            except FileNotFoundError:
-
-                return send_json(
-                    self,
-                    404,
-                    {
-                        "error": "swagger.json not found"
-                    }
-                )
-
-        # ==============================================
-        # 404
-        # ==============================================
-
-        return send_json(
-            self,
-            404,
-            {
-                "error": "Route not found"
-            }
         )
+
+        return jsonify(characters)
+
+    except Exception as error:
+
+        logging.error(error)
+
+        return jsonify({
+            "error": "Internal Server Error"
+        }), 500
+
+# ======================================================
+# ERROR 404
+# ======================================================
+
+@app.errorhandler(404)
+def not_found(error):
+
+    return jsonify({
+        "error": "Route not found"
+    }), 404
 
 # ======================================================
 # START SERVER
 # ======================================================
 
-def run():
-
-    server_address = ("", PORT)
-
-    httpd = HTTPServer(
-        server_address,
-        RequestHandler
-    )
-
-    print(f"Dragon Ball Service running on port {PORT}")
-
-    print(f"http://localhost:{PORT}/api/dragonball")
-
-    httpd.serve_forever()
-
-# ======================================================
-# MAIN
-# ======================================================
-
 if __name__ == "__main__":
 
-    run()
+    app.run(
+        host="0.0.0.0",
+        port=PORT
+    )
