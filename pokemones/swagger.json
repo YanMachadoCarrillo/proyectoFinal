@@ -3,32 +3,133 @@
   "info": {
     "title": "Pokemon API",
     "version": "1.0.0",
-    "description": "API para obtener pokemones desde MySQL"
+    "description": "Microservicio de Pokémon conectado a MySQL",
+    "contact": {
+      "name": "Yan Carlos"
+    }
   },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Servidor Local"
+    },
+    {
+      "url": "https://pokemon-api.onrender.com",
+      "description": "Servidor Producción"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del microservicio"
+    },
+    {
+      "name": "Pokemon",
+      "description": "Endpoints de Pokémon"
+    }
+  ],
   "paths": {
-    "/api/pokemon": {
+    "/": {
       "get": {
-        "summary": "Obtener lista de Pokemones",
+        "tags": ["Health"],
+        "summary": "Health Check",
+        "description": "Verifica si el microservicio está funcionando",
         "responses": {
           "200": {
-            "description": "Lista de pokemones exitosa",
+            "description": "Servicio funcionando",
+            "content": {
+              "application/json": {
+                "example": {
+                  "service": "Pokemon API",
+                  "status": "running"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pokemon": {
+      "get": {
+        "tags": ["Pokemon"],
+        "summary": "Obtener lista de Pokémon",
+        "description": "Retorna todos los Pokémon almacenados en MySQL",
+        "responses": {
+          "200": {
+            "description": "Lista de Pokémon obtenida correctamente",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": { "type": "integer" },
-                      "nombre": { "type": "string" },
-                      "tipo": { "type": "string" },
-                      "nivel": { "type": "integer" },
-                      "imagen": { "type": "string" }
-                    }
+                    "$ref": "#/components/schemas/Pokemon"
                   }
+                },
+                "example": [
+                  {
+                    "id": 1,
+                    "nombre": "Pikachu",
+                    "tipo": "Eléctrico",
+                    "nivel": 25,
+                    "imagen": "https://pokemon.com/pikachu.png"
+                  },
+                  {
+                    "id": 2,
+                    "nombre": "Charizard",
+                    "tipo": "Fuego",
+                    "nivel": 50,
+                    "imagen": "https://pokemon.com/charizard.png"
+                  }
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Internal Server Error"
                 }
               }
             }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pokemon": {
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "tipo",
+          "nivel",
+          "imagen"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Pikachu"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "Eléctrico"
+          },
+          "nivel": {
+            "type": "integer",
+            "example": 25
+          },
+          "imagen": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://pokemon.com/pikachu.png"
           }
         }
       }
