@@ -1,34 +1,77 @@
-const http = require('http');
+const express = require('express');
+
+const cors = require('cors');
+
 const mysql = require('mysql2/promise');
-const url = require('url');
-const fs = require('fs');
-const path = require('path');
+
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerDocument = require('./swagger.json');
+
+require('dotenv').config();
+
+// ======================================================
+// APP
+// ======================================================
+
+const app = express();
+
+// ======================================================
+// MIDDLEWARES
+// ======================================================
+
+app.use(cors());
+
+app.use(express.json());
+
+// ======================================================
+// PORT
+// ======================================================
 
 const PORT = process.env.PORT || 10000;
 
-// MYSQL CLOUD AIVEN
+// ======================================================
+// MYSQL POOL
+// ======================================================
+
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'mysql-2f42ba29-yanca-d8df.e.aivencloud.com',
-    user: process.env.DB_USER || 'avnadmin',
-    password: process.env.DB_PASS || 'AVNS_UN7GfudXe794uGDBbm2',
-    database: process.env.DB_NAME || 'defaultdb',
-    port: process.env.DB_PORT || 20110,
+
+    host:
+        process.env.DB_HOST,
+
+    user:
+        process.env.DB_USER,
+
+    password:
+        process.env.DB_PASS,
+
+    database:
+        process.env.DB_NAME,
+
+    port:
+        process.env.DB_PORT || 3306,
 
     ssl: {
         rejectUnauthorized: false
     },
 
     waitForConnections: true,
+
     connectionLimit: 10,
+
     queueLimit: 0
 });
 
-// INICIALIZAR BASE DE DATOS
+// ======================================================
+// INIT DATABASE
+// ======================================================
+
 async function initDB() {
 
     try {
 
-        const connection = await pool.getConnection();
+        const connection =
+            await pool.getConnection();
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS pokemon (
@@ -42,65 +85,15 @@ async function initDB() {
             )
         `);
 
-        const [rows] = await connection.query(
-            'SELECT COUNT(*) AS total FROM pokemon'
-        );
+        const [rows] =
+            await connection.query(
+                'SELECT COUNT(*) AS total FROM pokemon'
+            );
 
         if (rows[0].total === 0) {
 
-            const pokemonData = [
-                [
-                    'Pikachu',
-                    0.40,
-                    6.00,
-                    '["Static","Lightning Rod"]',
-                    'https://automlucas.com/img/front/Pikachu.png',
-                    'https://automlucas.com/img/back/Pikachu.png'
-                ],
-                [
-                    'Bulbasaur',
-                    0.70,
-                    6.90,
-                    '["Overgrow","Chlorophyll"]',
-                    'https://automlucas.com/img/front/Bulbasaur.png',
-                    'https://automlucas.com/img/back/Bulbasaur.png'
-                ],
-                [
-                    'Charmander',
-                    0.60,
-                    8.50,
-                    '["Blaze","Solar Power"]',
-                    'https://automlucas.com/img/front/Charmander.png',
-                    'https://automlucas.com/img/back/Charmander.png'
-                ],
-                [
-                    'Squirtle',
-                    0.50,
-                    9.00,
-                    '["Torrent","Rain Dish"]',
-                    'https://automlucas.com/img/front/Squirtle.png',
-                    'https://automlucas.com/img/back/Squirtle.png'
-                ],
-                [
-                    'Gengar',
-                    1.50,
-                    40.50,
-                    '["Cursed Body"]',
-                    'https://automlucas.com/img/front/Gengar.png',
-                    'https://automlucas.com/img/back/Gengar.png'
-                ],
-                [
-                    'Mewtwo',
-                    2.00,
-                    122.00,
-                    '["Pressure","Unnerve"]',
-                    'https://automlucas.com/img/front/Mewtwo.png',
-                    'https://automlucas.com/img/back/Mewtwo.png'
-                ]
-            ];
-
             await connection.query(`
-                INSERT INTO pokemon 
+                INSERT INTO pokemon
                 (
                     nombre,
                     altura,
@@ -109,154 +102,140 @@ async function initDB() {
                     imagen_frontal,
                     imagen_trasera
                 )
-                VALUES ?
-            `, [pokemonData]);
+                VALUES
+                (
+                    'Pikachu',
+                    0.40,
+                    6.00,
+                    '["Static","Lightning Rod"]',
+                    'https://automlucas.com/img/front/Pikachu.png',
+                    'https://automlucas.com/img/back/Pikachu.png'
+                )
+            `);
 
-            console.log('Pokemon insertados.');
+            console.log('Pokemon inicial insertado');
         }
 
         connection.release();
 
-        console.log('MySQL conectado correctamente.');
+        console.log('MySQL Connected');
 
     } catch (error) {
 
-        console.error('Error MySQL:', error);
+        console.error(
+            'Database Error:',
+            error
+        );
     }
 }
 
-// RESPUESTA JSON
-function sendJSON(res, statusCode, data) {
+// ======================================================
+// HOME
+// ======================================================
 
-    res.writeHead(statusCode, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+app.get('/', (req, res) => {
+
+    res.json({
+        service: 'Pokemon API',
+        status: 'running',
+        database: 'MySQL Aiven'
     });
+});
 
-    res.end(JSON.stringify(data));
-}
+// ======================================================
+// GET ALL POKEMON
+// ======================================================
 
-// SERVIDOR
-const server = http.createServer(async (req, res) => {
-
-    // CORS
-    if (req.method === 'OPTIONS') {
-
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-        });
-
-        return res.end();
-    }
-
-    const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname;
+app.get('/api/pokemon', async (req, res) => {
 
     try {
 
-        // HOME
-        if (req.method === 'GET' && pathname === '/') {
-
-            return sendJSON(res, 200, {
-                service: 'Pokemon Microservice',
-                status: 'Running',
-                database: 'MySQL Cloud Aiven',
-                endpoints: {
-                    allPokemon: '/api/pokemon',
-                    pokemonById: '/api/pokemon/:id',
-                    docs: '/api-docs'
-                }
-            });
-        }
-
-        // TODOS LOS POKEMON
-        if (req.method === 'GET' && pathname === '/api/pokemon') {
-
-            const [pokemon] = await pool.query(`
-                SELECT * FROM pokemon
+        const [pokemon] =
+            await pool.query(`
+                SELECT *
+                FROM pokemon
                 ORDER BY id ASC
             `);
 
-            return sendJSON(res, 200, pokemon);
-        }
-
-        // POKEMON POR ID
-        if (
-            req.method === 'GET' &&
-            pathname.startsWith('/api/pokemon/')
-        ) {
-
-            const id = pathname.split('/')[3];
-
-            const [pokemon] = await pool.query(`
-                SELECT * FROM pokemon
-                WHERE id = ?
-            `, [id]);
-
-            if (pokemon.length === 0) {
-
-                return sendJSON(res, 404, {
-                    error: 'Pokemon no encontrado'
-                });
-            }
-
-            return sendJSON(res, 200, pokemon[0]);
-        }
-
-        // SWAGGER
-        if (
-            req.method === 'GET' &&
-            pathname === '/api-docs'
-        ) {
-
-            const swaggerPath = path.join(
-                __dirname,
-                'swagger.json'
-            );
-
-            if (!fs.existsSync(swaggerPath)) {
-
-                return sendJSON(res, 404, {
-                    error: 'swagger.json no encontrado'
-                });
-            }
-
-            const swaggerData = fs.readFileSync(swaggerPath);
-
-            res.writeHead(200, {
-                'Content-Type': 'application/json'
-            });
-
-            return res.end(swaggerData);
-        }
-
-        // 404
-        return sendJSON(res, 404, {
-            error: 'Ruta no encontrada'
-        });
+        res.json(pokemon);
 
     } catch (error) {
 
-        console.error('Server Error:', error);
+        console.error(error);
 
-        return sendJSON(res, 500, {
+        res.status(500).json({
             error: 'Internal Server Error'
         });
     }
 });
 
-// INICIAR SERVIDOR
-server.listen(PORT, async () => {
+// ======================================================
+// GET POKEMON BY ID
+// ======================================================
+
+app.get('/api/pokemon/:id', async (req, res) => {
+
+    try {
+
+        const { id } = req.params;
+
+        const [pokemon] =
+            await pool.query(`
+                SELECT *
+                FROM pokemon
+                WHERE id = ?
+            `, [id]);
+
+        if (pokemon.length === 0) {
+
+            return res.status(404).json({
+                error: 'Pokemon not found'
+            });
+        }
+
+        res.json(pokemon[0]);
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            error: 'Internal Server Error'
+        });
+    }
+});
+
+// ======================================================
+// SWAGGER
+// ======================================================
+
+app.use(
+    '/apidocs',
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDocument)
+);
+
+// ======================================================
+// 404
+// ======================================================
+
+app.use((req, res) => {
+
+    res.status(404).json({
+        error: 'Route not found'
+    });
+});
+
+// ======================================================
+// START SERVER
+// ======================================================
+
+app.listen(PORT, async () => {
 
     console.log(`
 ========================================
-🚀 Pokemon Microservice Running
-🌐 Port: ${PORT}
-🗄️ MySQL: Connected
+ Pokemon API Running
+Port: ${PORT}
 ========================================
     `);
 
