@@ -13,17 +13,6 @@
     "mysql2": "^3.9.4",
     "swagger-ui-express": "^5.0.1"
   },
-  "keywords": [
-    "pokemon",
-    "nodejs",
-    "mysql",
-    "docker",
-    "render",
-    "swagger",
-    "api"
-  ],
-  "author": "Yan Carlos",
-  "license": "ISC",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
