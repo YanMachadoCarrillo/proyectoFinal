@@ -3,31 +3,126 @@
   "info": {
     "title": "Dragon Ball API",
     "version": "1.0.0",
-    "description": "API para obtener personajes de Dragon Ball desde MongoDB"
+    "description": "Microservicio de Dragon Ball conectado a MongoDB Atlas",
+    "contact": {
+      "name": "Yan Carlos"
+    }
   },
+  "servers": [
+    {
+      "url": "http://localhost:3003",
+      "description": "Servidor Local"
+    },
+    {
+      "url": "https://TU-APP.onrender.com",
+      "description": "Servidor Producción"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Verificación del servicio"
+    },
+    {
+      "name": "Dragon Ball",
+      "description": "Endpoints de personajes"
+    }
+  ],
   "paths": {
-    "/api/dragonball": {
+    "/": {
       "get": {
-        "summary": "Obtener lista de Personajes",
+        "tags": ["Health"],
+        "summary": "Health Check",
+        "description": "Verifica si el microservicio está funcionando",
         "responses": {
           "200": {
-            "description": "Lista exitosa",
+            "description": "Servicio funcionando",
+            "content": {
+              "application/json": {
+                "example": {
+                  "service": "Dragon Ball API",
+                  "status": "running"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dragonball": {
+      "get": {
+        "tags": ["Dragon Ball"],
+        "summary": "Obtener personajes",
+        "description": "Retorna la lista completa de personajes de Dragon Ball desde MongoDB",
+        "responses": {
+          "200": {
+            "description": "Lista obtenida correctamente",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "nombre": { "type": "string" },
-                      "raza": { "type": "string" },
-                      "ki": { "type": "integer" },
-                      "imagen": { "type": "string" }
-                    }
+                    "$ref": "#/components/schemas/Character"
                   }
+                },
+                "example": [
+                  {
+                    "nombre": "Goku",
+                    "raza": "Saiyajin",
+                    "ki": 9000,
+                    "imagen": "https://dragonball-api.com/goku.png"
+                  },
+                  {
+                    "nombre": "Vegeta",
+                    "raza": "Saiyajin",
+                    "ki": 8500,
+                    "imagen": "https://dragonball-api.com/vegeta.png"
+                  }
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Internal Server Error"
                 }
               }
             }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Character": {
+        "type": "object",
+        "required": [
+          "nombre",
+          "raza",
+          "ki",
+          "imagen"
+        ],
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "example": "Goku"
+          },
+          "raza": {
+            "type": "string",
+            "example": "Saiyajin"
+          },
+          "ki": {
+            "type": "integer",
+            "example": 9000
+          },
+          "imagen": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://dragonball-api.com/goku.png"
           }
         }
       }
