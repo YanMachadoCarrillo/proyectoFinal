@@ -18,9 +18,14 @@
     "nodejs",
     "mysql",
     "docker",
-    "render"
+    "render",
+    "swagger",
+    "api"
   ],
   "author": "Yan Carlos",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  }
 }
