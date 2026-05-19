@@ -22,7 +22,7 @@ PORT = int(os.getenv("PORT", 3003))
 
 MONGO_URI = os.getenv(
     "MONGO_URI",
-    "mongodb+srv://TU_USUARIO:TU_PASSWORD@cluster.mongodb.net/?retryWrites=true&w=majority"
+    "mongodb+srv://YanCarlos:1234567890@pokeapibd.crjoj9o.mongodb.net/?appName=pokeapiBD"
 )
 
 DB_NAME = os.getenv(
