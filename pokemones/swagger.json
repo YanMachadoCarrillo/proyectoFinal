@@ -3,21 +3,19 @@
   "info": {
     "title": "Pokemon API",
     "version": "1.0.0",
-    "description": "Microservicio de Pokémon conectado a MySQL",
+    "description": "Microservicio de Pokémon conectado a MySQL y desplegado en Render",
     "contact": {
       "name": "Yan Carlos"
     }
   },
+
   "servers": [
-    {
-      "url": "http://localhost:3001",
-      "description": "Servidor Local"
-    },
     {
       "url": "https://proyectofinal-ta9q.onrender.com",
       "description": "Servidor Producción"
     }
   ],
+
   "tags": [
     {
       "name": "Health",
@@ -28,20 +26,36 @@
       "description": "Endpoints de Pokémon"
     }
   ],
+
   "paths": {
+
     "/": {
+
       "get": {
+
         "tags": ["Health"],
+
         "summary": "Health Check",
+
         "description": "Verifica si el microservicio está funcionando",
+
         "responses": {
+
           "200": {
+
             "description": "Servicio funcionando",
+
             "content": {
+
               "application/json": {
+
                 "example": {
+
                   "service": "Pokemon API",
-                  "status": "running"
+
+                  "status": "running",
+
+                  "database": "connected"
                 }
               }
             }
@@ -49,102 +63,259 @@
         }
       }
     },
+
     "/api/pokemon": {
+
       "get": {
+
         "tags": ["Pokemon"],
+
         "summary": "Obtener lista de Pokémon",
+
         "description": "Retorna todos los Pokémon almacenados en MySQL",
+
         "responses": {
+
           "200": {
+
             "description": "Lista de Pokémon obtenida correctamente",
+
             "content": {
+
               "application/json": {
+
                 "schema": {
+
                   "type": "array",
+
                   "items": {
+
                     "$ref": "#/components/schemas/Pokemon"
                   }
                 },
+
                 "example": [
+
                   {
+
                     "id": 1,
+
                     "nombre": "Pikachu",
-                    "altura": 30.0,
-                    "peso": 6.0,
-                    "habilidades": "[\"Static\",\"Lightning Rod\"]",
-                    "imagen_frontal": "https://automlucas.com/img/front/Pikachu",
-                    "imagen_trasera": "https://automlucas.com/img/back/Pikachu"
+
+                    "altura": 0.40,
+
+                    "peso": 6.00,
+
+                    "habilidades": [
+                      "Static",
+                      "Lightning Rod"
+                    ],
+
+                    "imagen_frontal":
+                      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png",
+
+                    "imagen_trasera":
+                      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/25.png"
                   },
+
                   {
+
                     "id": 2,
+
                     "nombre": "Charizard",
-                    "altura": 1.7,
-                    "peso": 90.5,
-                    "habilidades": "[\"Blaze\",\"Solar Power\"]",
-                    "imagen_frontal": "https://automlucas.com/img/front/Charizard",
-                    "imagen_trasera": "https://automlucas.com/img/back/Charizard"
+
+                    "altura": 1.70,
+
+                    "peso": 90.50,
+
+                    "habilidades": [
+                      "Blaze",
+                      "Solar Power"
+                    ],
+
+                    "imagen_frontal":
+                      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png",
+
+                    "imagen_trasera":
+                      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/6.png"
                   }
                 ]
               }
             }
           },
+
           "500": {
+
             "description": "Error interno del servidor",
+
             "content": {
+
               "application/json": {
+
                 "example": {
-                  "error": "Internal Server Error"
+
+                  "error":
+                    "Internal Server Error"
                 }
               }
             }
           }
         }
       }
+    },
+
+    "/api/pokemon/{id}": {
+
+      "get": {
+
+        "tags": ["Pokemon"],
+
+        "summary": "Obtener Pokémon por ID",
+
+        "description": "Retorna un Pokémon específico",
+
+        "parameters": [
+
+          {
+
+            "name": "id",
+
+            "in": "path",
+
+            "required": true,
+
+            "schema": {
+
+              "type": "integer"
+            },
+
+            "example": 1
+          }
+        ],
+
+        "responses": {
+
+          "200": {
+
+            "description": "Pokémon encontrado",
+
+            "content": {
+
+              "application/json": {
+
+                "schema": {
+
+                  "$ref":
+                    "#/components/schemas/Pokemon"
+                }
+              }
+            }
+          },
+
+          "404": {
+
+            "description": "Pokémon no encontrado"
+          },
+
+          "400": {
+
+            "description": "ID inválido"
+          }
+        }
+      }
     }
   },
+
   "components": {
+
     "schemas": {
+
       "Pokemon": {
+
         "type": "object",
+
         "required": [
+
           "id",
+
           "nombre",
+
           "altura",
+
           "peso",
+
           "habilidades",
+
           "imagen_frontal",
+
           "imagen_trasera"
         ],
+
         "properties": {
+
           "id": {
+
             "type": "integer",
+
             "example": 1
           },
+
           "nombre": {
+
             "type": "string",
+
             "example": "Pikachu"
           },
+
           "altura": {
+
             "type": "number",
-            "example": 30.0
+
+            "example": 0.40
           },
+
           "peso": {
+
             "type": "number",
-            "example": 6.0
+
+            "example": 6.00
           },
+
           "habilidades": {
-            "type": "string",
-            "example": "[\"Static\",\"Lightning Rod\"]"
+
+            "type": "array",
+
+            "items": {
+
+              "type": "string"
+            },
+
+            "example": [
+
+              "Static",
+
+              "Lightning Rod"
+            ]
           },
+
           "imagen_frontal": {
+
             "type": "string",
+
             "format": "uri",
-            "example": "https://automlucas.com/img/front/Pikachu"
+
+            "example":
+              "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"
           },
+
           "imagen_trasera": {
+
             "type": "string",
+
             "format": "uri",
-            "example": "https://automlucas.com/img/back/Pikachu"
+
+            "example":
+              "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/25.png"
           }
         }
       }
