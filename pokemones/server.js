@@ -69,7 +69,8 @@ app.options('*', cors());
 
 const limiter = rateLimit({
 
-    windowMs: 15 * 60 * 1000,
+    windowMs:
+        15 * 60 * 1000,
 
     max: 300,
 
@@ -140,15 +141,20 @@ validateEnv();
 
 const pool = mysql.createPool({
 
-    host: process.env.DB_HOST,
+    host:
+        process.env.DB_HOST,
 
-    user: process.env.DB_USER,
+    user:
+        process.env.DB_USER,
 
-    password: process.env.DB_PASSWORD,
+    password:
+        process.env.DB_PASSWORD,
 
-    database: process.env.DB_NAME,
+    database:
+        process.env.DB_NAME,
 
-    port: Number(process.env.DB_PORT),
+    port:
+        Number(process.env.DB_PORT),
 
     ssl: {
         rejectUnauthorized: false
@@ -255,7 +261,7 @@ ${error.message}
 }
 
 // ======================================================
-// DEBUG ROUTES
+// TEST ROUTE
 // ======================================================
 
 app.get('/test', (req, res) => {
@@ -277,7 +283,7 @@ app.get('/', async (req, res) => {
 
         await pool.query('SELECT 1');
 
-        res.json({
+        res.status(200).json({
 
             service:
                 'Pokemon API',
@@ -308,7 +314,7 @@ app.get('/', async (req, res) => {
 
 app.get('/health', (req, res) => {
 
-    res.json({
+    res.status(200).json({
 
         status:
             'ok'
@@ -325,39 +331,111 @@ app.get('/api/pokemon', async (req, res) => {
 
         console.log('GET /api/pokemon');
 
-        const [pokemon] =
+        const [rows] =
             await pool.query(`
 
-                SELECT *
+                SELECT
+                    id,
+                    nombre,
+                    altura,
+                    peso,
+                    habilidades,
+                    imagen_frontal,
+                    imagen_trasera
                 FROM pokemon
                 ORDER BY id ASC
 
             `);
 
-        const formattedPokemon =
-            pokemon.map(p => ({
+        // ======================================
+        // VALIDATE ARRAY
+        // ======================================
 
-                ...p,
+        if (!Array.isArray(rows)) {
 
-                habilidades:
-                    typeof p.habilidades === 'string'
-                        ? JSON.parse(p.habilidades)
-                        : p.habilidades
-            }));
+            console.error(
+                'MySQL did not return array'
+            );
 
-        res.status(200).json(
-            formattedPokemon
+            return res.status(200).json([]);
+        }
+
+        // ======================================
+        // FORMAT DATA
+        // ======================================
+
+        const pokemon =
+            rows.map(p => {
+
+                let habilidades = [];
+
+                try {
+
+                    if (
+                        typeof p.habilidades === 'string'
+                    ) {
+
+                        habilidades =
+                            JSON.parse(
+                                p.habilidades
+                            );
+
+                    } else if (
+                        Array.isArray(p.habilidades)
+                    ) {
+
+                        habilidades =
+                            p.habilidades;
+                    }
+
+                } catch (jsonError) {
+
+                    console.error(
+                        'JSON Parse Error:',
+                        jsonError.message
+                    );
+
+                    habilidades = [];
+                }
+
+                return {
+
+                    id:
+                        Number(p.id),
+
+                    nombre:
+                        p.nombre || 'Sin nombre',
+
+                    altura:
+                        Number(p.altura || 0),
+
+                    peso:
+                        Number(p.peso || 0),
+
+                    habilidades,
+
+                    imagen_frontal:
+                        p.imagen_frontal || '',
+
+                    imagen_trasera:
+                        p.imagen_trasera || ''
+                };
+            });
+
+        return res.status(200).json(
+            pokemon
         );
 
     } catch (error) {
 
-        console.error(error);
+        console.error(`
+========================================
+POKEMON ROUTE ERROR
+${error.message}
+========================================
+        `);
 
-        res.status(500).json({
-
-            error:
-                error.message
-        });
+        return res.status(200).json([]);
     }
 });
 
@@ -381,16 +459,23 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
-        const [pokemon] =
+        const [rows] =
             await pool.query(`
 
-                SELECT *
+                SELECT
+                    id,
+                    nombre,
+                    altura,
+                    peso,
+                    habilidades,
+                    imagen_frontal,
+                    imagen_trasera
                 FROM pokemon
                 WHERE id = ?
 
             `, [id]);
 
-        if (pokemon.length === 0) {
+        if (!rows.length) {
 
             return res.status(404).json({
 
@@ -399,16 +484,65 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
-        res.json(
-            pokemon[0]
-        );
+        const p = rows[0];
+
+        let habilidades = [];
+
+        try {
+
+            if (
+                typeof p.habilidades === 'string'
+            ) {
+
+                habilidades =
+                    JSON.parse(
+                        p.habilidades
+                    );
+
+            } else if (
+                Array.isArray(p.habilidades)
+            ) {
+
+                habilidades =
+                    p.habilidades;
+            }
+
+        } catch {
+
+            habilidades = [];
+        }
+
+        return res.status(200).json({
+
+            id:
+                Number(p.id),
+
+            nombre:
+                p.nombre || 'Sin nombre',
+
+            altura:
+                Number(p.altura || 0),
+
+            peso:
+                Number(p.peso || 0),
+
+            habilidades,
+
+            imagen_frontal:
+                p.imagen_frontal || '',
+
+            imagen_trasera:
+                p.imagen_trasera || ''
+        });
 
     } catch (error) {
 
-        res.status(500).json({
+        console.error(error);
+
+        return res.status(500).json({
 
             error:
-                error.message
+                'Internal Server Error'
         });
     }
 });
@@ -429,7 +563,7 @@ app.use(
 );
 
 // ======================================================
-// ROUTES DEBUG
+// DEBUG ROUTES
 // ======================================================
 
 console.log('================ ROUTES ================');
@@ -458,7 +592,7 @@ app.use((req, res) => {
 });
 
 // ======================================================
-// GLOBAL ERROR
+// GLOBAL ERROR HANDLER
 // ======================================================
 
 app.use((err, req, res, next) => {
