@@ -3,19 +3,12 @@
 // ======================================================
 
 const express = require('express');
-
 const cors = require('cors');
-
 const mysql = require('mysql2/promise');
-
 const helmet = require('helmet');
-
 const compression = require('compression');
-
 const rateLimit = require('express-rate-limit');
-
 const swaggerUi = require('swagger-ui-express');
-
 const swaggerDocument = require('./swagger.json');
 
 require('dotenv').config();
@@ -27,7 +20,7 @@ require('dotenv').config();
 const app = express();
 
 // ======================================================
-// TRUST PROXY (RENDER)
+// TRUST PROXY
 // ======================================================
 
 app.set('trust proxy', 1);
@@ -36,8 +29,7 @@ app.set('trust proxy', 1);
 // PORT
 // ======================================================
 
-const PORT =
-    process.env.PORT || 10000;
+const PORT = process.env.PORT || 10000;
 
 // ======================================================
 // SECURITY
@@ -51,13 +43,9 @@ app.use(compression());
 // CORS
 // ======================================================
 
-const corsOptions = {
+app.use(cors({
 
-    origin: [
-        'https://automlucas.com',
-        'http://localhost:3000',
-        'http://127.0.0.1:5500'
-    ],
+    origin: '*',
 
     methods: [
         'GET',
@@ -70,61 +58,25 @@ const corsOptions = {
     allowedHeaders: [
         'Content-Type',
         'Authorization'
-    ],
+    ]
+}));
 
-    credentials: true
-};
-
-app.use(cors(corsOptions));
-
-app.options('*', cors(corsOptions));
-
-// ======================================================
-// EXTRA HEADERS
-// ======================================================
-
-app.use((req, res, next) => {
-
-    res.header(
-        'Access-Control-Allow-Origin',
-        'https://automlucas.com'
-    );
-
-    res.header(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-    );
-
-    res.header(
-        'Access-Control-Allow-Methods',
-        'GET, POST, PUT, DELETE, OPTIONS'
-    );
-
-    next();
-});
+app.options('*', cors());
 
 // ======================================================
 // RATE LIMIT
 // ======================================================
 
-const limiter =
-    rateLimit({
+const limiter = rateLimit({
 
-        windowMs:
-            15 * 60 * 1000,
+    windowMs: 15 * 60 * 1000,
 
-        max: 200,
+    max: 300,
 
-        standardHeaders: true,
+    standardHeaders: true,
 
-        legacyHeaders: false,
-
-        message: {
-
-            error:
-                'Too many requests'
-        }
-    });
+    legacyHeaders: false
+});
 
 app.use(limiter);
 
@@ -171,7 +123,7 @@ function validateEnv() {
 
         console.error(`
 ========================================
-Missing Environment Variables
+MISSING ENV VARIABLES
 ${missing.join('\n')}
 ========================================
         `);
@@ -188,20 +140,15 @@ validateEnv();
 
 const pool = mysql.createPool({
 
-    host:
-        process.env.DB_HOST,
+    host: process.env.DB_HOST,
 
-    user:
-        process.env.DB_USER,
+    user: process.env.DB_USER,
 
-    password:
-        process.env.DB_PASSWORD,
+    password: process.env.DB_PASSWORD,
 
-    database:
-        process.env.DB_NAME,
+    database: process.env.DB_NAME,
 
-    port:
-        Number(process.env.DB_PORT),
+    port: Number(process.env.DB_PORT),
 
     ssl: {
         rejectUnauthorized: false
@@ -211,15 +158,11 @@ const pool = mysql.createPool({
 
     connectionLimit: 10,
 
-    queueLimit: 0,
-
-    enableKeepAlive: true,
-
-    keepAliveInitialDelay: 0
+    queueLimit: 0
 });
 
 // ======================================================
-// DATABASE INIT
+// INIT DATABASE
 // ======================================================
 
 async function initDB() {
@@ -231,9 +174,7 @@ async function initDB() {
         connection =
             await pool.getConnection();
 
-        console.log(
-            '✅ MySQL Connected'
-        );
+        console.log('✅ MySQL Connected');
 
         await connection.query(`
 
@@ -261,10 +202,8 @@ async function initDB() {
 
         const [rows] =
             await connection.query(`
-
                 SELECT COUNT(*) AS total
                 FROM pokemon
-
             `);
 
         if (rows[0].total === 0) {
@@ -301,7 +240,7 @@ async function initDB() {
 
         console.error(`
 ========================================
-DATABASE INIT ERROR
+DATABASE ERROR
 ${error.message}
 ========================================
         `);
@@ -316,7 +255,20 @@ ${error.message}
 }
 
 // ======================================================
-// HEALTH CHECK
+// DEBUG ROUTES
+// ======================================================
+
+app.get('/test', (req, res) => {
+
+    res.json({
+
+        message:
+            'Test route working'
+    });
+});
+
+// ======================================================
+// ROOT
 // ======================================================
 
 app.get('/', async (req, res) => {
@@ -325,7 +277,7 @@ app.get('/', async (req, res) => {
 
         await pool.query('SELECT 1');
 
-        res.status(200).json({
+        res.json({
 
             service:
                 'Pokemon API',
@@ -344,12 +296,6 @@ app.get('/', async (req, res) => {
 
         res.status(500).json({
 
-            service:
-                'Pokemon API',
-
-            status:
-                'database error',
-
             error:
                 error.message
         });
@@ -357,12 +303,12 @@ app.get('/', async (req, res) => {
 });
 
 // ======================================================
-// HEALTH ROUTE
+// HEALTH
 // ======================================================
 
 app.get('/health', (req, res) => {
 
-    res.status(200).json({
+    res.json({
 
         status:
             'ok'
@@ -377,17 +323,12 @@ app.get('/api/pokemon', async (req, res) => {
 
     try {
 
+        console.log('GET /api/pokemon');
+
         const [pokemon] =
             await pool.query(`
 
-                SELECT
-                    id,
-                    nombre,
-                    altura,
-                    peso,
-                    habilidades,
-                    imagen_frontal,
-                    imagen_trasera
+                SELECT *
                 FROM pokemon
                 ORDER BY id ASC
 
@@ -415,9 +356,6 @@ app.get('/api/pokemon', async (req, res) => {
         res.status(500).json({
 
             error:
-                'Internal Server Error',
-
-            message:
                 error.message
         });
     }
@@ -434,15 +372,12 @@ app.get('/api/pokemon/:id', async (req, res) => {
         const { id } =
             req.params;
 
-        if (
-            !id ||
-            isNaN(id)
-        ) {
+        if (isNaN(id)) {
 
             return res.status(400).json({
 
                 error:
-                    'Invalid Pokemon ID'
+                    'Invalid ID'
             });
         }
 
@@ -455,9 +390,7 @@ app.get('/api/pokemon/:id', async (req, res) => {
 
             `, [id]);
 
-        if (
-            pokemon.length === 0
-        ) {
+        if (pokemon.length === 0) {
 
             return res.status(404).json({
 
@@ -466,33 +399,15 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
-        const pokemonData =
-            pokemon[0];
-
-        if (
-            typeof pokemonData.habilidades === 'string'
-        ) {
-
-            pokemonData.habilidades =
-                JSON.parse(
-                    pokemonData.habilidades
-                );
-        }
-
-        res.status(200).json(
-            pokemonData
+        res.json(
+            pokemon[0]
         );
 
     } catch (error) {
 
-        console.error(error);
-
         res.status(500).json({
 
             error:
-                'Internal Server Error',
-
-            message:
                 error.message
         });
     }
@@ -503,11 +418,8 @@ app.get('/api/pokemon/:id', async (req, res) => {
 // ======================================================
 
 app.use(
-
     '/apidocs',
-
     swaggerUi.serve,
-
     swaggerUi.setup(
         swaggerDocument,
         {
@@ -515,6 +427,22 @@ app.use(
         }
     )
 );
+
+// ======================================================
+// ROUTES DEBUG
+// ======================================================
+
+console.log('================ ROUTES ================');
+
+app._router.stack.forEach(r => {
+
+    if (r.route && r.route.path) {
+
+        console.log(r.route.path);
+    }
+});
+
+console.log('========================================');
 
 // ======================================================
 // 404
@@ -530,17 +458,12 @@ app.use((req, res) => {
 });
 
 // ======================================================
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR
 // ======================================================
 
 app.use((err, req, res, next) => {
 
-    console.error(`
-========================================
-SERVER ERROR
-${err.stack}
-========================================
-    `);
+    console.error(err.stack);
 
     res.status(500).json({
 
@@ -573,12 +496,7 @@ https://proyectofinal-ta9q.onrender.com/apidocs
 
     } catch (error) {
 
-        console.error(`
-========================================
-SERVER START ERROR
-${error.message}
-========================================
-        `);
+        console.error(error);
 
         process.exit(1);
     }
