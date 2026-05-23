@@ -29,7 +29,8 @@ app.set('trust proxy', 1);
 // PORT
 // ======================================================
 
-const PORT = process.env.PORT || 10000;
+const PORT =
+    process.env.PORT || 10000;
 
 // ======================================================
 // SECURITY
@@ -67,17 +68,18 @@ app.options('*', cors());
 // RATE LIMIT
 // ======================================================
 
-const limiter = rateLimit({
+const limiter =
+    rateLimit({
 
-    windowMs:
-        15 * 60 * 1000,
+        windowMs:
+            15 * 60 * 1000,
 
-    max: 300,
+        max: 300,
 
-    standardHeaders: true,
+        standardHeaders: true,
 
-    legacyHeaders: false
-});
+        legacyHeaders: false
+    });
 
 app.use(limiter);
 
@@ -212,6 +214,10 @@ async function initDB() {
                 FROM pokemon
             `);
 
+        // ======================================================
+        // INSERT INITIAL DATA
+        // ======================================================
+
         if (rows[0].total === 0) {
 
             await connection.query(`
@@ -266,7 +272,7 @@ ${error.message}
 
 app.get('/test', (req, res) => {
 
-    res.json({
+    res.status(200).json({
 
         message:
             'Test route working'
@@ -347,22 +353,22 @@ app.get('/api/pokemon', async (req, res) => {
 
             `);
 
-        // ======================================
+        // ======================================================
         // VALIDATE ARRAY
-        // ======================================
+        // ======================================================
 
         if (!Array.isArray(rows)) {
 
             console.error(
-                'MySQL did not return array'
+                'Rows is not array'
             );
 
             return res.status(200).json([]);
         }
 
-        // ======================================
+        // ======================================================
         // FORMAT DATA
-        // ======================================
+        // ======================================================
 
         const pokemon =
             rows.map(p => {
@@ -401,7 +407,7 @@ app.get('/api/pokemon', async (req, res) => {
                 return {
 
                     id:
-                        Number(p.id),
+                        Number(p.id || 0),
 
                     nombre:
                         p.nombre || 'Sin nombre',
@@ -421,6 +427,10 @@ app.get('/api/pokemon', async (req, res) => {
                         p.imagen_trasera || ''
                 };
             });
+
+        // ======================================================
+        // ALWAYS RETURN ARRAY
+        // ======================================================
 
         return res.status(200).json(
             pokemon
@@ -450,6 +460,10 @@ app.get('/api/pokemon/:id', async (req, res) => {
         const { id } =
             req.params;
 
+        // ======================================================
+        // VALIDATE ID
+        // ======================================================
+
         if (isNaN(id)) {
 
             return res.status(400).json({
@@ -474,6 +488,10 @@ app.get('/api/pokemon/:id', async (req, res) => {
                 WHERE id = ?
 
             `, [id]);
+
+        // ======================================================
+        // NOT FOUND
+        // ======================================================
 
         if (!rows.length) {
 
@@ -515,7 +533,7 @@ app.get('/api/pokemon/:id', async (req, res) => {
         return res.status(200).json({
 
             id:
-                Number(p.id),
+                Number(p.id || 0),
 
             nombre:
                 p.nombre || 'Sin nombre',
