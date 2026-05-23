@@ -9,9 +9,26 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger.json');
 
 require('dotenv').config();
+
+// ======================================================
+// SWAGGER SAFE LOAD
+// ======================================================
+
+let swaggerDocument = {};
+
+try {
+
+    swaggerDocument =
+        require('./swagger.json');
+
+} catch {
+
+    console.warn(
+        'Swagger file not found'
+    );
+}
 
 // ======================================================
 // APP
@@ -98,46 +115,6 @@ app.use(express.urlencoded({
 }));
 
 // ======================================================
-// ENV VALIDATION
-// ======================================================
-
-const REQUIRED_ENV = [
-
-    'DB_HOST',
-    'DB_USER',
-    'DB_PASSWORD',
-    'DB_NAME',
-    'DB_PORT'
-];
-
-function validateEnv() {
-
-    const missing = [];
-
-    REQUIRED_ENV.forEach(key => {
-
-        if (!process.env[key]) {
-
-            missing.push(key);
-        }
-    });
-
-    if (missing.length > 0) {
-
-        console.error(`
-========================================
-MISSING ENV VARIABLES
-${missing.join('\n')}
-========================================
-        `);
-
-        process.exit(1);
-    }
-}
-
-validateEnv();
-
-// ======================================================
 // MYSQL POOL
 // ======================================================
 
@@ -170,117 +147,7 @@ const pool = mysql.createPool({
 });
 
 // ======================================================
-// INIT DATABASE
-// ======================================================
-
-async function initDB() {
-
-    let connection;
-
-    try {
-
-        connection =
-            await pool.getConnection();
-
-        console.log('✅ MySQL Connected');
-
-        await connection.query(`
-
-            CREATE TABLE IF NOT EXISTS pokemon (
-
-                id INT PRIMARY KEY AUTO_INCREMENT,
-
-                nombre VARCHAR(100) NOT NULL,
-
-                altura DECIMAL(5,2),
-
-                peso DECIMAL(5,2),
-
-                habilidades JSON,
-
-                imagen_frontal TEXT,
-
-                imagen_trasera TEXT,
-
-                created_at TIMESTAMP
-                DEFAULT CURRENT_TIMESTAMP
-            )
-
-        `);
-
-        const [rows] =
-            await connection.query(`
-                SELECT COUNT(*) AS total
-                FROM pokemon
-            `);
-
-        // ======================================================
-        // INSERT INITIAL DATA
-        // ======================================================
-
-        if (rows[0].total === 0) {
-
-            await connection.query(`
-
-                INSERT INTO pokemon
-                (
-                    nombre,
-                    altura,
-                    peso,
-                    habilidades,
-                    imagen_frontal,
-                    imagen_trasera
-                )
-                VALUES
-                (
-                    'Pikachu',
-                    0.40,
-                    6.00,
-                    '["Static","Lightning Rod"]',
-                    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
-                    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/25.png'
-                )
-
-            `);
-
-            console.log(
-                '✅ Initial Pokemon inserted'
-            );
-        }
-
-    } catch (error) {
-
-        console.error(`
-========================================
-DATABASE ERROR
-${error.message}
-========================================
-        `);
-
-    } finally {
-
-        if (connection) {
-
-            connection.release();
-        }
-    }
-}
-
-// ======================================================
-// TEST ROUTE
-// ======================================================
-
-app.get('/test', (req, res) => {
-
-    res.status(200).json({
-
-        message:
-            'Test route working'
-    });
-});
-
-// ======================================================
-// ROOT
+// HEALTH CHECK
 // ======================================================
 
 app.get('/', async (req, res) => {
@@ -289,7 +156,7 @@ app.get('/', async (req, res) => {
 
         await pool.query('SELECT 1');
 
-        res.status(200).json({
+        return res.status(200).json({
 
             service:
                 'Pokemon API',
@@ -298,15 +165,18 @@ app.get('/', async (req, res) => {
                 'running',
 
             database:
-                'connected',
-
-            timestamp:
-                new Date()
+                'connected'
         });
 
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
+
+            service:
+                'Pokemon API',
+
+            status:
+                'error',
 
             error:
                 error.message
@@ -320,7 +190,7 @@ app.get('/', async (req, res) => {
 
 app.get('/health', (req, res) => {
 
-    res.status(200).json({
+    return res.status(200).json({
 
         status:
             'ok'
@@ -335,7 +205,9 @@ app.get('/api/pokemon', async (req, res) => {
 
     try {
 
-        console.log('GET /api/pokemon');
+        console.log(
+            'GET /api/pokemon'
+        );
 
         const [rows] =
             await pool.query(`
@@ -353,22 +225,18 @@ app.get('/api/pokemon', async (req, res) => {
 
             `);
 
-        // ======================================================
+        // ======================================
         // VALIDATE ARRAY
-        // ======================================================
+        // ======================================
 
         if (!Array.isArray(rows)) {
-
-            console.error(
-                'Rows is not array'
-            );
 
             return res.status(200).json([]);
         }
 
-        // ======================================================
+        // ======================================
         // FORMAT DATA
-        // ======================================================
+        // ======================================
 
         const pokemon =
             rows.map(p => {
@@ -385,8 +253,9 @@ app.get('/api/pokemon', async (req, res) => {
                             JSON.parse(
                                 p.habilidades
                             );
+                    }
 
-                    } else if (
+                    else if (
                         Array.isArray(p.habilidades)
                     ) {
 
@@ -394,12 +263,7 @@ app.get('/api/pokemon', async (req, res) => {
                             p.habilidades;
                     }
 
-                } catch (jsonError) {
-
-                    console.error(
-                        'JSON Parse Error:',
-                        jsonError.message
-                    );
+                } catch {
 
                     habilidades = [];
                 }
@@ -428,9 +292,9 @@ app.get('/api/pokemon', async (req, res) => {
                 };
             });
 
-        // ======================================================
+        // ======================================
         // ALWAYS RETURN ARRAY
-        // ======================================================
+        // ======================================
 
         return res.status(200).json(
             pokemon
@@ -440,7 +304,7 @@ app.get('/api/pokemon', async (req, res) => {
 
         console.error(`
 ========================================
-POKEMON ROUTE ERROR
+POKEMON API ERROR
 ${error.message}
 ========================================
         `);
@@ -459,10 +323,6 @@ app.get('/api/pokemon/:id', async (req, res) => {
 
         const { id } =
             req.params;
-
-        // ======================================================
-        // VALIDATE ID
-        // ======================================================
 
         if (isNaN(id)) {
 
@@ -489,10 +349,6 @@ app.get('/api/pokemon/:id', async (req, res) => {
 
             `, [id]);
 
-        // ======================================================
-        // NOT FOUND
-        // ======================================================
-
         if (!rows.length) {
 
             return res.status(404).json({
@@ -502,7 +358,8 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
-        const p = rows[0];
+        const p =
+            rows[0];
 
         let habilidades = [];
 
@@ -516,13 +373,6 @@ app.get('/api/pokemon/:id', async (req, res) => {
                     JSON.parse(
                         p.habilidades
                     );
-
-            } else if (
-                Array.isArray(p.habilidades)
-            ) {
-
-                habilidades =
-                    p.habilidades;
             }
 
         } catch {
@@ -569,32 +419,19 @@ app.get('/api/pokemon/:id', async (req, res) => {
 // SWAGGER
 // ======================================================
 
-app.use(
-    '/apidocs',
-    swaggerUi.serve,
-    swaggerUi.setup(
-        swaggerDocument,
-        {
-            explorer: true
-        }
-    )
-);
+if (
+    swaggerDocument &&
+    Object.keys(swaggerDocument).length > 0
+) {
 
-// ======================================================
-// DEBUG ROUTES
-// ======================================================
-
-console.log('================ ROUTES ================');
-
-app._router.stack.forEach(r => {
-
-    if (r.route && r.route.path) {
-
-        console.log(r.route.path);
-    }
-});
-
-console.log('========================================');
+    app.use(
+        '/apidocs',
+        swaggerUi.serve,
+        swaggerUi.setup(
+            swaggerDocument
+        )
+    );
+}
 
 // ======================================================
 // 404
@@ -602,7 +439,7 @@ console.log('========================================');
 
 app.use((req, res) => {
 
-    res.status(404).json({
+    return res.status(404).json({
 
         error:
             'Route not found'
@@ -610,14 +447,14 @@ app.use((req, res) => {
 });
 
 // ======================================================
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR
 // ======================================================
 
 app.use((err, req, res, next) => {
 
-    console.error(err.stack);
+    console.error(err);
 
-    res.status(500).json({
+    return res.status(500).json({
 
         error:
             'Internal Server Error'
@@ -628,30 +465,12 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ======================================================
 
-async function startServer() {
+app.listen(PORT, () => {
 
-    try {
-
-        await initDB();
-
-        app.listen(PORT, () => {
-
-            console.log(`
+    console.log(`
 ========================================
 🚀 Pokemon API Running
 🌐 Port: ${PORT}
-📄 Swagger:
-https://proyectofinal-ta9q.onrender.com/apidocs
 ========================================
-            `);
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        process.exit(1);
-    }
-}
-
-startServer();
+    `);
+});
