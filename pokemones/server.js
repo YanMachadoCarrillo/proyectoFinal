@@ -27,6 +27,12 @@ require('dotenv').config();
 const app = express();
 
 // ======================================================
+// TRUST PROXY (RENDER)
+// ======================================================
+
+app.set('trust proxy', 1);
+
+// ======================================================
 // PORT
 // ======================================================
 
@@ -42,6 +48,62 @@ app.use(helmet());
 app.use(compression());
 
 // ======================================================
+// CORS
+// ======================================================
+
+const corsOptions = {
+
+    origin: [
+        'https://automlucas.com',
+        'http://localhost:3000',
+        'http://127.0.0.1:5500'
+    ],
+
+    methods: [
+        'GET',
+        'POST',
+        'PUT',
+        'DELETE',
+        'OPTIONS'
+    ],
+
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization'
+    ],
+
+    credentials: true
+};
+
+app.use(cors(corsOptions));
+
+app.options('*', cors(corsOptions));
+
+// ======================================================
+// EXTRA HEADERS
+// ======================================================
+
+app.use((req, res, next) => {
+
+    res.header(
+        'Access-Control-Allow-Origin',
+        'https://automlucas.com'
+    );
+
+    res.header(
+        'Access-Control-Allow-Headers',
+        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    );
+
+    res.header(
+        'Access-Control-Allow-Methods',
+        'GET, POST, PUT, DELETE, OPTIONS'
+    );
+
+    next();
+});
+
+// ======================================================
 // RATE LIMIT
 // ======================================================
 
@@ -51,36 +113,20 @@ const limiter =
         windowMs:
             15 * 60 * 1000,
 
-        max: 100,
+        max: 200,
+
+        standardHeaders: true,
+
+        legacyHeaders: false,
 
         message: {
+
             error:
                 'Too many requests'
         }
     });
 
 app.use(limiter);
-
-// ======================================================
-// CORS
-// ======================================================
-
-app.use(cors({
-
-    origin: '*',
-
-    methods: [
-        'GET',
-        'POST',
-        'PUT',
-        'DELETE'
-    ],
-
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization'
-    ]
-}));
 
 // ======================================================
 // BODY PARSER
@@ -221,10 +267,6 @@ async function initDB() {
 
             `);
 
-        // ======================================
-        // SEED DATA
-        // ======================================
-
         if (rows[0].total === 0) {
 
             await connection.query(`
@@ -315,6 +357,19 @@ app.get('/', async (req, res) => {
 });
 
 // ======================================================
+// HEALTH ROUTE
+// ======================================================
+
+app.get('/health', (req, res) => {
+
+    res.status(200).json({
+
+        status:
+            'ok'
+    });
+});
+
+// ======================================================
 // GET ALL POKEMON
 // ======================================================
 
@@ -338,7 +393,20 @@ app.get('/api/pokemon', async (req, res) => {
 
             `);
 
-        res.status(200).json(pokemon);
+        const formattedPokemon =
+            pokemon.map(p => ({
+
+                ...p,
+
+                habilidades:
+                    typeof p.habilidades === 'string'
+                        ? JSON.parse(p.habilidades)
+                        : p.habilidades
+            }));
+
+        res.status(200).json(
+            formattedPokemon
+        );
 
     } catch (error) {
 
@@ -366,10 +434,6 @@ app.get('/api/pokemon/:id', async (req, res) => {
         const { id } =
             req.params;
 
-        // ======================================
-        // VALIDATION
-        // ======================================
-
         if (
             !id ||
             isNaN(id)
@@ -391,10 +455,6 @@ app.get('/api/pokemon/:id', async (req, res) => {
 
             `, [id]);
 
-        // ======================================
-        // NOT FOUND
-        // ======================================
-
         if (
             pokemon.length === 0
         ) {
@@ -406,8 +466,21 @@ app.get('/api/pokemon/:id', async (req, res) => {
             });
         }
 
+        const pokemonData =
+            pokemon[0];
+
+        if (
+            typeof pokemonData.habilidades === 'string'
+        ) {
+
+            pokemonData.habilidades =
+                JSON.parse(
+                    pokemonData.habilidades
+                );
+        }
+
         res.status(200).json(
-            pokemon[0]
+            pokemonData
         );
 
     } catch (error) {
