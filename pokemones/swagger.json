@@ -14,7 +14,7 @@
       "description": "Servidor Local"
     },
     {
-      "url": "https://pokemon-api.onrender.com",
+      "url": "https://proyectofinal-ta9q.onrender.com",
       "description": "Servidor Producción"
     }
   ],
@@ -69,16 +69,20 @@
                   {
                     "id": 1,
                     "nombre": "Pikachu",
-                    "tipo": "Eléctrico",
-                    "nivel": 25,
-                    "imagen": "https://pokemon.com/pikachu.png"
+                    "altura": 30.0,
+                    "peso": 6.0,
+                    "habilidades": "[\"Static\",\"Lightning Rod\"]",
+                    "imagen_frontal": "https://automlucas.com/img/front/Pikachu",
+                    "imagen_trasera": "https://automlucas.com/img/back/Pikachu"
                   },
                   {
                     "id": 2,
                     "nombre": "Charizard",
-                    "tipo": "Fuego",
-                    "nivel": 50,
-                    "imagen": "https://pokemon.com/charizard.png"
+                    "altura": 1.7,
+                    "peso": 90.5,
+                    "habilidades": "[\"Blaze\",\"Solar Power\"]",
+                    "imagen_frontal": "https://automlucas.com/img/front/Charizard",
+                    "imagen_trasera": "https://automlucas.com/img/back/Charizard"
                   }
                 ]
               }
@@ -105,9 +109,11 @@
         "required": [
           "id",
           "nombre",
-          "tipo",
-          "nivel",
-          "imagen"
+          "altura",
+          "peso",
+          "habilidades",
+          "imagen_frontal",
+          "imagen_trasera"
         ],
         "properties": {
           "id": {
@@ -118,18 +124,27 @@
             "type": "string",
             "example": "Pikachu"
           },
-          "tipo": {
+          "altura": {
+            "type": "number",
+            "example": 30.0
+          },
+          "peso": {
+            "type": "number",
+            "example": 6.0
+          },
+          "habilidades": {
             "type": "string",
-            "example": "Eléctrico"
+            "example": "[\"Static\",\"Lightning Rod\"]"
           },
-          "nivel": {
-            "type": "integer",
-            "example": 25
-          },
-          "imagen": {
+          "imagen_frontal": {
             "type": "string",
             "format": "uri",
-            "example": "https://pokemon.com/pikachu.png"
+            "example": "https://automlucas.com/img/front/Pikachu"
+          },
+          "imagen_trasera": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://automlucas.com/img/back/Pikachu"
           }
         }
       }
