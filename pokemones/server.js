@@ -1,8 +1,18 @@
+// ======================================================
+// IMPORTS
+// ======================================================
+
 const express = require('express');
 
 const cors = require('cors');
 
 const mysql = require('mysql2/promise');
+
+const helmet = require('helmet');
+
+const compression = require('compression');
+
+const rateLimit = require('express-rate-limit');
 
 const swaggerUi = require('swagger-ui-express');
 
@@ -17,24 +27,81 @@ require('dotenv').config();
 const app = express();
 
 // ======================================================
-// MIDDLEWARES
-// ======================================================
-
-app.use(cors());
-
-app.use(express.json());
-
-// ======================================================
 // PORT
 // ======================================================
 
-const PORT = process.env.PORT || 10000;
+const PORT =
+    process.env.PORT || 10000;
+
+// ======================================================
+// SECURITY
+// ======================================================
+
+app.use(helmet());
+
+app.use(compression());
+
+// ======================================================
+// RATE LIMIT
+// ======================================================
+
+const limiter =
+    rateLimit({
+
+        windowMs:
+            15 * 60 * 1000,
+
+        max: 100,
+
+        message: {
+            error:
+                'Too many requests'
+        }
+    });
+
+app.use(limiter);
+
+// ======================================================
+// CORS
+// ======================================================
+
+app.use(cors({
+
+    origin: '*',
+
+    methods: [
+        'GET',
+        'POST',
+        'PUT',
+        'DELETE'
+    ],
+
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization'
+    ]
+}));
+
+// ======================================================
+// BODY PARSER
+// ======================================================
+
+app.use(express.json({
+
+    limit: '10mb'
+}));
+
+app.use(express.urlencoded({
+
+    extended: true
+}));
 
 // ======================================================
 // ENV VALIDATION
 // ======================================================
 
 const REQUIRED_ENV = [
+
     'DB_HOST',
     'DB_USER',
     'DB_PASSWORD',
@@ -42,13 +109,32 @@ const REQUIRED_ENV = [
     'DB_PORT'
 ];
 
-for (const key of REQUIRED_ENV) {
+function validateEnv() {
 
-    if (!process.env[key]) {
+    const missing = [];
 
-        console.error(`Missing environment variable: ${key}`);
+    REQUIRED_ENV.forEach(key => {
+
+        if (!process.env[key]) {
+
+            missing.push(key);
+        }
+    });
+
+    if (missing.length > 0) {
+
+        console.error(`
+========================================
+Missing Environment Variables
+${missing.join('\n')}
+========================================
+        `);
+
+        process.exit(1);
     }
 }
+
+validateEnv();
 
 // ======================================================
 // MYSQL POOL
@@ -87,39 +173,62 @@ const pool = mysql.createPool({
 });
 
 // ======================================================
-// INIT DATABASE
+// DATABASE INIT
 // ======================================================
 
 async function initDB() {
 
+    let connection;
+
     try {
 
-        const connection =
+        connection =
             await pool.getConnection();
 
-        console.log('MySQL Connected');
+        console.log(
+            '✅ MySQL Connected'
+        );
 
         await connection.query(`
+
             CREATE TABLE IF NOT EXISTS pokemon (
+
                 id INT PRIMARY KEY AUTO_INCREMENT,
+
                 nombre VARCHAR(100) NOT NULL,
+
                 altura DECIMAL(5,2),
+
                 peso DECIMAL(5,2),
+
                 habilidades JSON,
+
                 imagen_frontal TEXT,
-                imagen_trasera TEXT
+
+                imagen_trasera TEXT,
+
+                created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
             )
+
         `);
 
         const [rows] =
             await connection.query(`
+
                 SELECT COUNT(*) AS total
                 FROM pokemon
+
             `);
+
+        // ======================================
+        // SEED DATA
+        // ======================================
 
         if (rows[0].total === 0) {
 
             await connection.query(`
+
                 INSERT INTO pokemon
                 (
                     nombre,
@@ -135,22 +244,32 @@ async function initDB() {
                     0.40,
                     6.00,
                     '["Static","Lightning Rod"]',
-                    'https://automlucas.com/img/front/Pikachu.png',
-                    'https://automlucas.com/img/back/Pikachu.png'
+                    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
+                    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/25.png'
                 )
+
             `);
 
-            console.log('Initial Pokemon inserted');
+            console.log(
+                '✅ Initial Pokemon inserted'
+            );
         }
-
-        connection.release();
 
     } catch (error) {
 
-        console.error(
-            'Database Initialization Error:',
-            error.message
-        );
+        console.error(`
+========================================
+DATABASE INIT ERROR
+${error.message}
+========================================
+        `);
+
+    } finally {
+
+        if (connection) {
+
+            connection.release();
+        }
     }
 }
 
@@ -164,18 +283,33 @@ app.get('/', async (req, res) => {
 
         await pool.query('SELECT 1');
 
-        res.json({
-            service: 'Pokemon API',
-            status: 'running',
-            database: 'connected'
+        res.status(200).json({
+
+            service:
+                'Pokemon API',
+
+            status:
+                'running',
+
+            database:
+                'connected',
+
+            timestamp:
+                new Date()
         });
 
     } catch (error) {
 
         res.status(500).json({
-            service: 'Pokemon API',
-            status: 'database error',
-            error: error.message
+
+            service:
+                'Pokemon API',
+
+            status:
+                'database error',
+
+            error:
+                error.message
         });
     }
 });
@@ -190,9 +324,18 @@ app.get('/api/pokemon', async (req, res) => {
 
         const [pokemon] =
             await pool.query(`
-                SELECT *
+
+                SELECT
+                    id,
+                    nombre,
+                    altura,
+                    peso,
+                    habilidades,
+                    imagen_frontal,
+                    imagen_trasera
                 FROM pokemon
                 ORDER BY id ASC
+
             `);
 
         res.status(200).json(pokemon);
@@ -202,7 +345,12 @@ app.get('/api/pokemon', async (req, res) => {
         console.error(error);
 
         res.status(500).json({
-            error: error.message
+
+            error:
+                'Internal Server Error',
+
+            message:
+                error.message
         });
     }
 });
@@ -215,37 +363,64 @@ app.get('/api/pokemon/:id', async (req, res) => {
 
     try {
 
-        const { id } = req.params;
+        const { id } =
+            req.params;
 
-        if (isNaN(id)) {
+        // ======================================
+        // VALIDATION
+        // ======================================
+
+        if (
+            !id ||
+            isNaN(id)
+        ) {
 
             return res.status(400).json({
-                error: 'Invalid Pokemon ID'
+
+                error:
+                    'Invalid Pokemon ID'
             });
         }
 
         const [pokemon] =
             await pool.query(`
+
                 SELECT *
                 FROM pokemon
                 WHERE id = ?
+
             `, [id]);
 
-        if (pokemon.length === 0) {
+        // ======================================
+        // NOT FOUND
+        // ======================================
+
+        if (
+            pokemon.length === 0
+        ) {
 
             return res.status(404).json({
-                error: 'Pokemon not found'
+
+                error:
+                    'Pokemon not found'
             });
         }
 
-        res.status(200).json(pokemon[0]);
+        res.status(200).json(
+            pokemon[0]
+        );
 
     } catch (error) {
 
         console.error(error);
 
         res.status(500).json({
-            error: error.message
+
+            error:
+                'Internal Server Error',
+
+            message:
+                error.message
         });
     }
 });
@@ -255,9 +430,17 @@ app.get('/api/pokemon/:id', async (req, res) => {
 // ======================================================
 
 app.use(
+
     '/apidocs',
+
     swaggerUi.serve,
-    swaggerUi.setup(swaggerDocument)
+
+    swaggerUi.setup(
+        swaggerDocument,
+        {
+            explorer: true
+        }
+    )
 );
 
 // ======================================================
@@ -267,7 +450,29 @@ app.use(
 app.use((req, res) => {
 
     res.status(404).json({
-        error: 'Route not found'
+
+        error:
+            'Route not found'
+    });
+});
+
+// ======================================================
+// GLOBAL ERROR HANDLER
+// ======================================================
+
+app.use((err, req, res, next) => {
+
+    console.error(`
+========================================
+SERVER ERROR
+${err.stack}
+========================================
+    `);
+
+    res.status(500).json({
+
+        error:
+            'Internal Server Error'
     });
 });
 
@@ -275,14 +480,35 @@ app.use((req, res) => {
 // START SERVER
 // ======================================================
 
-app.listen(PORT, async () => {
+async function startServer() {
 
-    console.log(`
+    try {
+
+        await initDB();
+
+        app.listen(PORT, () => {
+
+            console.log(`
 ========================================
 🚀 Pokemon API Running
 🌐 Port: ${PORT}
+📄 Swagger:
+https://proyectofinal-ta9q.onrender.com/apidocs
 ========================================
-    `);
+            `);
+        });
 
-    await initDB();
-});
+    } catch (error) {
+
+        console.error(`
+========================================
+SERVER START ERROR
+${error.message}
+========================================
+        `);
+
+        process.exit(1);
+    }
+}
+
+startServer();
